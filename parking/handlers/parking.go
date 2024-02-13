@@ -63,7 +63,7 @@ func (handler *ParkingHandler) ParkInAvailableSpace(c *gin.Context) {
 }
 
 func (handler *ParkingHandler) LeaveParkingLot(c *gin.Context) {
-	if handler.getAvailableParkingLosts() == cap(handler.ParkingLots) {
+	if handler.getAvailableParkingLosts() == 0 {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"message": "Parking lot is empty, no car can leave",
 		})
