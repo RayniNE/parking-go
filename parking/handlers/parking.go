@@ -3,12 +3,14 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/raynine/parking-go/models"
 )
 
 type ParkingHandler struct {
+	mx          sync.RWMutex
 	ParkingLots chan models.Parking
 	queuedCars  chan models.Parking
 	leavingCars chan models.Parking
@@ -16,6 +18,7 @@ type ParkingHandler struct {
 
 func NewParkingHandler() *ParkingHandler {
 	return &ParkingHandler{
+		mx:          sync.RWMutex{},
 		ParkingLots: make(chan models.Parking, 2),
 		queuedCars:  make(chan models.Parking, 4),
 		leavingCars: make(chan models.Parking, 1),
@@ -39,6 +42,16 @@ func (handler *ParkingHandler) ParkInAvailableSpace(c *gin.Context) {
 		})
 		return
 	}
+
+	// This is Monitores
+
+	// We lock the logic below to ensure that each request made
+	// returns real data, since we can make a request
+	// while another one is being processed and for some reason
+	// the second one ends first, the first request will have wrong data or will cause
+	// an unexpected behaviour
+	handler.mx.Lock()
+	defer handler.mx.Unlock()
 
 	availableSpace := handler.getAvailableParkingLosts()
 
@@ -70,6 +83,7 @@ func (handler *ParkingHandler) LeaveParkingLot(c *gin.Context) {
 		return
 	}
 
+	// This is Sincronizacion
 	car := <-handler.ParkingLots
 	handler.leavingCars <- car
 }
@@ -80,6 +94,7 @@ func (handler *ParkingHandler) getAvailableParkingLosts() int {
 }
 
 func (handler *ParkingHandler) ParkCar() {
+	// This is Concurrencia (Check serve.go, line 23)
 	fmt.Println("Running go routine")
 	for leaving := range handler.leavingCars {
 		fmt.Printf("Car: %v is leaving, moving next car in the queue to the parking lot\n", leaving.Car)
